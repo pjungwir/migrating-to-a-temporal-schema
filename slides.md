@@ -968,6 +968,8 @@ Notes:
 
 # Thanks!
 
+https://github.com/pjungwir/migrating-to-a-temporal-schema
+
 Notes:
 
 - Okay, that's it!
