@@ -229,33 +229,7 @@ Notes:
   - Just make a regular foreign key column and use it.
 - How do you make a non-temporal table point at a temporal table?
   - It has to reference a unique constraint, but you can't do that.
-  - I'll share my solutions in a bit.
-
-
-
-# Foreign Keys
-
-```sql
-WITH new_ids AS (
-  INSERT INTO ids.clients DEFAULT VALUES RETURNING id
-)
-INSERT INTO temporal.clients (id, valid_at, name)
-  SELECT id, daterange(current_date, null), 'Nadir'
-  FROM new_ids;
-```
-
-Notes:
-
-- If you have a really big sweater and you need to build a wall around your temporal tables, here is an idea.
-- It's a little desperate, to be honest.
-- You could have a table with just the ids standing in between the temporal tables and the rest.
-- It has just one column, the id.
-- Then to insert new temporal records, you do something like this.
-- This generates a new id in the middle table and uses it in your temporal table,
-- which has a foreign key to enforce integrity.
-- Other tables, like `invoices` reference the ids table.
-- Effectively you're saying that those other tables can reference a client if it *ever existed*.
-- I didn't feel like I needed to do this, but I tried it out anyway.
+  - Stay tuned!
 
 
 
@@ -303,15 +277,10 @@ Notes:
 
 Notes:
 
-- Snodgrass has a paper from 1993 with a lot of helpful algebraic results about temporal relational operators.
-- He developed a query language called TQuel, an extension to Quel, the query language of this old database---you may have heard of it---Ingres.
-- A result from that paper is very important for us.
-- Snapshotting is *isomorphic* over temporal operators.
-  - In other words, if you did some temporal joins and then snapshotted,
-    that's the same as snapshotting each table and then doing regular joins.
-  - In other words we can push down the filtering, and do the same query we were doing before.
-    - We don't really need all these temporal operators, if in the end we only care about a snapshot result.
-- So this means you don't need to change any queries you have today,
+- Fortunately, snapshotting is isomorphic over temporal operators.
+- This is from a Snodgrass paper from 1993.
+- What I mean is you can take the snapshot before you do stuff like joins, or after.
+- So even big complicated queries don't need any more changes,
   except to filter the base rels as I showed a moment ago.
 
 
@@ -319,7 +288,7 @@ Notes:
 # VIEWs
 <!-- .slide: style="font-size:75%; text-align:left" -->
 
-```sql[|16|17|2-15|9|4-8|10-14|17] CREATE VIEW clients AS
+```sql[|15|16|1-14|8|3-7|9-13|16] CREATE VIEW clients AS
 SELECT  id, name, slug,
         ..., position,
         -- created_at: The very first version's lower(valid_at):
@@ -426,15 +395,15 @@ Notes:
 
 # UPDATE
 
-```sql[|5-7|5-7,13]
+```sql[|5-8|5-8,13]
 CREATE FUNCTION update_work_categories_view() RETURNS trigger
 LANGUAGE plpgsql AS
 $$
 BEGIN
   UPDATE temporal.work_categories
     FOR PORTION OF valid_at
-      FROM current_timestamp at time zone 'UTC'
-      TO null
+      FROM current_timestamp AT TIME ZONE 'UTC'
+      TO NULL
     SET client_id = NEW.client_id,
         name      = NEW.name,
         rate      = NEW.rate
@@ -491,7 +460,6 @@ Notes:
   - How many times have you seen a soft-deleted record still referenced by not-deleted records?
     That shouldn't happen, right?
   - A temporal foreign key will see the problem and prevent the change.
-  - With regular soft-delete, you could have a non-deleted record pointing to a soft-deleted one, and your foreign keys won't catch it.
   - With a temporal foreign key, the referencing row can't outlive the referenced row.
   - Again, we could use an `INSTEAD OF` trigger so we don't have to change any code.
 
@@ -499,7 +467,7 @@ Notes:
 
 # INSERT
 
-```sql[|8-9|10]
+```sql[|10|11-12]
 CREATE FUNCTION insert_work_categories_view()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -508,7 +476,8 @@ $$
 BEGIN
   INSERT INTO temporal.work_categories
     (client_id, name, rate, valid_at) VALUES
-    (NEW.client_id,  NEW.name, NEW.rate, daterange(current_date, null))
+    (NEW.client_id,  NEW.name, NEW.rate,
+    tsrange(current_timestamp AT TIME ZONE 'UTC', NULL))
     RETURNING id INTO NEW.id;
   RETURN NEW;
 END;
@@ -553,7 +522,6 @@ Notes:
 - Then I had "work categories", which is like a broad classification of the work I'm doing: Development, Consulting, Design, etc.
   - In theory a different work category could have a different rate.
   - Work categories were children of their client snapshot, so they were effectively versioned too.
-    - I said before they were children of clients, but I lied.
     - So each time I change a client, I make new work category records.
     - We don't have to do this anymore!
   - As I mentioned before, if a work category doesn't change, it can reference one client version for some of its history, and another client version for the rest.
@@ -566,6 +534,7 @@ Notes:
   - I think this will remove a lot of annoying code from the app.
   - I was able to get through all that before this talk,
     but even better I broke it down into steps.
+  - I didn't completely drop the `client_snapshots` table right away; at first I made it into another view.
 
 
 
@@ -579,10 +548,6 @@ Notes:
 - Fo instance here is an acts table.
 - These other two are the same as before.
 - The acts table has what I did: it's the time-tracking table.
-- The use of time here is pretty weird.
-  - I was trying to avoid timezone issues.
-  - So I captured the day alone as a date column, so there was no question there.
-  - Then the start and end times are timestamps.
 - This is just an example of something that references `client_snapshots` and `work_categories`.
 - There are also invoices and email templates.
   - Yes every application eventually sends mail!
@@ -607,23 +572,17 @@ Notes:
 - First of all, doing this migration will probably uncover a lot of bad data.
   - I had way fewer constraints than I would add now,
     and I guess I never revisited that.
-- In my case, there were several times when I tracked time outside of the app before I created a client record, then I put the acts into the app.
-  - Since I want to use the act's `created_at` column, this is going to cause some small problems.
-- I found a few other things too, like abusing the system before I had built out features I needed.
-  - Like one time a client asked me to send separate invoices for different concurrent projects.
-  - Or I had multiple client records so I could do retainer payments with a higher overflow price.
 - The best way to do this is to add as many constraints as you can *before* you do the temporal migration.
 - And then I was able to do this in steps.
   - Most things have foreign keys to a client snapshot, not the overall client.
     - That's how I know what PO number to use, how many retainer hours to work, etc.
     - So replacing that with a view would be very helpful!
-    - The goal is to avoid application changes as much as possible.
   - Then I'd like to discard the "client snapshot" concept altogether.
     - That of course requires a lot of app changes.
     - Actually it was pretty easy, like changing two or three files.
-      - Except nearly every *tests* had to be changed too, because their setup was creating `client_snapshots`.
+      - Except nearly every *test* had to be changed too, because their setup was creating `client_snapshots`.
   - And then I also converted `work_categories` to a temporal table.
-  - Here again a view is helpful so reporting and invoicing still give correct answers.
+  - Here again a view was helpful for a while so reporting and invoicing still give correct answers.
 
 
 
@@ -636,8 +595,7 @@ Notes:
 
 Notes:
 
-- How do you achieve incremental progress?
-- Foreign keys are what really mess this up.
+- But to break it down into steps, I had to solve foreign keys between legacy and temporal tables.
   - All tables are connected.
   - So you need non-temporal tables to reference temporal ones, and that's the kind of foreign key we don't have.
 - I have four solutions for this:
@@ -699,11 +657,11 @@ Notes:
   - Foreign keys are just triggers; you can make your own.
   - You check foreign keys in four places: if the referenced table is updated or deleted, if the referencing table is inserted or updated.
 
-- I've done this by hand before, but here I had Claude spat out for me.
+- I've done this by hand before, but here I asked Claude, and it spat out this.
   - This is the function to add a foreign key.
     - It takes the table and column names.
     - Then it puts a trigger on the referencing table,[SHOW]
-    - and another table on the referenced table.[SHOW]
+    - and another trigger on the referenced table.[SHOW]
 
 
 
@@ -768,6 +726,7 @@ Notes:
 
 
 # ID Tables
+<!-- .slide: style="font-size:85%" -->
 
 ![`client_ids` table](/img/client_ids_table.png)
 
@@ -792,8 +751,12 @@ $$;
 Notes:
 
 - I also tried out making a separate id table.
+  - Say you haven't migrated your invoices table yet, but it needs to reference a client.
+    - You could put a non-temporal table in the middle, which only has one column.
+  - Like foreign keys, effectively you're saying that those other tables can reference a client if it *ever existed*.
   - This idea seems quite desperate, to be honest.
   - I just wanted to prove that it worked.
+
   - It wasn't *that* bad.
     - I used a `BEFORE INSERT` trigger on the real table to insert a row into the ids table.
     - Here is that function.
@@ -808,7 +771,7 @@ Notes:
 # Clients
 <!-- .slide: style="font-size:85%" -->
 
-```sql[|2-4,9|6-7|10|11-14|15]
+```sql[|2-4,9|6-7|10|11-14|8,15]
 CREATE TABLE temporal.clients (
   id integer NOT NULL GENERATED BY DEFAULT AS IDENTITY
     /* REFERENCES temporal.single_clients (id) */,
@@ -830,7 +793,7 @@ EOQ
 
 Notes:
 
-- Here is the temporal clients table.
+- Okay I think we are finally ready to make our temporal clients table.
 - So we have an id and a `valid_at` column, which are the primary key. [SHOW]
 - In the experiment with a separate ids table, the id was both part of the primary key and a foreign key!
   - Just writing my own "loose" foreign key trigger function was easier and a lot cleaner though.
@@ -839,7 +802,7 @@ Notes:
   - This is a problem for our non-temporal updatable view.
   - Our `INSTEAD OF` trigger explicitly sets each column, so it will set them to `NULL`, not the default.
   - We could detect nulls and fill in the default.
-  - Then the user-facing behavior of the view not quite the same as a regular table, where passing an explicit null doesn't give you the default.
+  - But then the user-facing behavior of the view not quite the same as a regular table, where passing an explicit null doesn't give you the default.
   - But it turns out views can have defaults too!
   - You can't put it into the `CREATE VIEW` command, but you can `ALTER VIEW` to add them.
   - That's great because our trigger function can stay nice and simple.
@@ -854,6 +817,7 @@ Notes:
   - Keeping it lets us build a view to replace the old table.
   - This is a non-temporal unique column.
   - So that lets us keep the same foreign keys as before.
+    - We don't even need our loose foreign keys yet, but I didn't keep this around for long.
   - This is a serial column, so future clients will get a new id.
   - OTOH if we do a temporal update, we *also* need to get a new id.
     - So we add a trigger for that.
@@ -908,6 +872,7 @@ JOIN    clients c ON c.id = cs.client_id;
 
 Notes:
 
+- Okay we've got a table, let's put data into it!
 - Here is SQL to fill the client history table.
 - Each snapshot becomes a new row.
 - I'm preserving the old client ids.[SHOW]
@@ -918,14 +883,16 @@ Notes:
   - Also this is an ordinary, non-temporal unique column.
     So foreign keys referencing client snapshots can point here instead.
     - Later I was able to replace those with references to `client_id` instead.
-  - After this command, we need to update the sequence!
+  - Just don't forget, after inserting these records, we need to catch up that sequence!
 - Then I build the valid-time. [SHOW]
   - Window functions are very helpful here.
     - A row's valid-time is just the creation time of the snapshot until the next snapshot.
-- The position column was tricky too, because we have a temporal unique constraint on it.[SHOW]
-  - Simply copying this from the old clients table wasn't ideal.
-    - It was okay, but it left gaps.
-    - Using `dense_rank` gives me no gaps.
+- I was worried the position column would be tricky,[SHOW]
+  - first because of its temporal unique constraint,
+  - and also I was worried about gaps.
+  - It practice these weren't an issue,
+    but you could use `dense_rank` as here to remove gaps.
+  - Unique violations are bad data you'll have to clean up.
 
 
 
@@ -935,7 +902,9 @@ Notes:
 ```sql
 SELECT  client_snapshot_id AS id,
         id AS client_id,
-        lead(client_snapshot_id) OVER (PARTITION BY id ORDER BY id) AS replaced_by_id,
+        lead(client_snapshot_id)
+          OVER (PARTITION BY id ORDER BY id)
+          AS replaced_by_id,
         name,
         ...,
         lower(valid_at) AS created_at,
@@ -951,6 +920,7 @@ Notes:
 - Here is the `client_snapshots` view.
 - It's really simple: just one-to-one from the new history table, with minor translation.
 - Computing the `replaced_by_id` column is the only interesting bit.
+  - Again, the lead window function is what we need.
 - I don't need this to be an updatable view: the idea is that these don't get updated, right?
 
 
@@ -976,23 +946,34 @@ WHERE   wc.valid_at @> current_timestamp at time zone 'UTC'
 
 Notes:
 
-- I was also able to move my `work_categories` into a temporal table.
-- In the past I made new work category rows here for each snapshot, even if they didn't change.
+- I also moved `work_categories` to a temporal table.
+- Here is the view to simulate the old legacy table.
+- As I said, in the past I made new work category rows here for each snapshot, even if they didn't change.
   That means that a work category doesn't have a constant id across versions.
   Fortunately the *name* is unique (within a client), so I still have a key.
 - My migration plan here has to be right, because work categories have the hourly rate I'm charging.
   - So each act has to join to the *right time*.
-  - At first I want to preserve the old work category ids, just as I preserved the snapshot ids.
-    Then I don't have to update any of those queries right away.
-  - When I do update them, I can drop the legacy work category ids, and use loose foreign keys to the new id that's shared across versions.
-- I won't do that in a fully-temporal database, but it's convenient that I did it before.
-  - I'll create a one-to-one mapping and use the client snapshot's valid-time.
+  - At first I preserved the old work category ids, just as I preserved the snapshot ids.
+    Then I didn't have to update any of those queries right away.
+  - Later I dropped the legacy work category ids and used loose foreign keys to the new id that's shared across versions.
+  - And then I had to join based on time instead of the legacy id.
 
-- And maybe I should preserve their old `client_snapshot_id` too?
+- I asked myself if the new `work_categories` table needed to store the old `client_snapshot_id` too?
   - Because often the app joins between work categories and their client snapshot by that id.
-  - But I don't really have to store it.
+  - But I don't actually need it!
   - A work category's valid time is going to be defined by its client snapshot's valid-time,
     so by construction I can join based on that.
+
+
+
+# Thanks!
+
+Notes:
+
+- Okay, that's it!
+- This migration is still in-progress, but I feel I've got a methodology and a clear path forward.
+- Thanks for letting me share this work with you!
+- Here is a link to these slides.[SHOW]
 
 
 
@@ -1005,3 +986,7 @@ Notes:
 - Boris Novikov. "PostgreSQL Temporal Aggregates: SUM, AVG & COUNT Across Time." Red Gate, 2024. https://www.red-gate.com/simple-talk/databases/postgresql/making-temporal-databases-work-part-2-computing-aggregates-across-temporal-versions/
 - Paul Jungwirth. These slides. https://github.com/pjungwir/migrating-to-a-temporal-schema
 
+Notes:
+
+- Here are references to other things I mentioned or that seem related.
+- But you can't read that, so you should start here.[BACK]
