@@ -104,7 +104,7 @@ Notes:
 
 Notes:
 
-- [SHOW] In Postgres we can do this with a single rangetype column.
+- [SHOW] Actually in Postgres we can do this with a single rangetype column.
 - Notice an entity can have multiple rows with the same primary key!
 - As long as their valid-times don't overlap, there is no contradiction.
 
@@ -117,7 +117,7 @@ Notes:
 Notes:
 
 - Here is the same thing but this last row is no good.
-- The first row covers all time since 2016,
+- Its first row covers all time since 2016,
   and the second row says something else for 2017.
 - That is a contradiction!
 
@@ -254,7 +254,7 @@ Notes:
 ```sql
 SELECT  * EXCEPT valid_at
 FROM    t
-WHERE   valid_at @> current_time;
+WHERE   valid_at @> current_timestamp;
 ```
 
 Notes:
@@ -286,7 +286,7 @@ Notes:
 
 
 # VIEWs
-<!-- .slide: style="font-size:75%; text-align:left" -->
+<!-- .slide: style="font-size:85%; text-align:left" -->
 
 ```sql[|15|16|1-14|8|3-7|9-13|16] CREATE VIEW clients AS
 SELECT  id, name, slug,
@@ -338,7 +338,7 @@ UPDATE work_categories
 
 Notes:
 
-- Okay on the updating!
+- Okay on to updating!
   - We call that foreshadowing. . . .
 - Here is how you update a temporal table.
 - For example we can raise our rate by 10%.
@@ -512,11 +512,10 @@ Notes:
 
 - For clients I also had a `deleted_at` column for soft-deletes
   *and* an `archived` flag.
-  - Having both seems to be a mistake.
+  - Having both seems to be an oversight.
   - Either one hides the client from the main data-entry widgets,
     but neither hides all their past data.
-    If they are deleted they show grayed out in certain places.
-  - I think distinguishing between past clients and current clients is a good use of application time.
+  - But distinguishing between past clients and current clients is a good use of application time.
   - Hopefully a temporal schema lets me drops *both* of these columns.
 
 - Then I had "work categories", which is like a broad classification of the work I'm doing: Development, Consulting, Design, etc.
@@ -528,10 +527,10 @@ Notes:
 
 - So the goal is to get rid of the `client_snapshots` table and give these other two an application-time column.
   - This is more ambitious than transparently putting a history table behind a view.
-  - I want to lose the snapshots table altogether.
-  - But I still don't want to make the app fully temporal-aware,
+  - Ultimately I wanted to lose the snapshots table altogether.
+  - But I still didn't want to make the app fully temporal-aware,
     so I will use the view + history table here too, just without snapshots.
-  - I think this will remove a lot of annoying code from the app.
+  - l figured this would let remove a lot of annoying code from the app.
   - I was able to get through all that before this talk,
     but even better I broke it down into steps.
   - I didn't completely drop the `client_snapshots` table right away; at first I made it into another view.
@@ -545,7 +544,7 @@ Notes:
 Notes:
 
 - Of course there is more to this schema.
-- Fo instance here is an acts table.
+- For instance here is an acts table.
 - These other two are the same as before.
 - The acts table has what I did: it's the time-tracking table.
 - This is just an example of something that references `client_snapshots` and `work_categories`.
@@ -582,7 +581,7 @@ Notes:
     - Actually it was pretty easy, like changing two or three files.
       - Except nearly every *test* had to be changed too, because their setup was creating `client_snapshots`.
   - And then I also converted `work_categories` to a temporal table.
-  - Here again a view was helpful for a while so reporting and invoicing still give correct answers.
+  - Here again a view was helpful for a while so reporting and invoicing still gave correct answers.
 
 
 
@@ -608,8 +607,8 @@ Notes:
 - 2. Add another column that has a regular unique constraint.
   - This is what I did simulating `client_snapshots`.
     - Not really satisfying, but gives you minimal app changes.
-    - It lets you escape actual temporal semantics, like referencing it outside the valid-time.
-    - This is risky because you can get out of sync.
+    - It lets you escape actual temporal semantics, joining on the key rather than on time, so you could write a join that doesn't make sense.
+    - If you aren't careful, the records will be out of sync.
 
 
 
@@ -756,6 +755,7 @@ Notes:
   - Like foreign keys, effectively you're saying that those other tables can reference a client if it *ever existed*.
   - This idea seems quite desperate, to be honest.
   - I just wanted to prove that it worked.
+    - Once all the tests passed, I took it out.
 
   - It wasn't *that* bad.
     - I used a `BEFORE INSERT` trigger on the real table to insert a row into the ids table.
@@ -810,7 +810,9 @@ Notes:
   - This is just like a primary key, except it can have nulls.
   - A slug is the name, lowercased, with spaced removed.
   - So it's nice in a URL or a filename, like for invoice PDFs.
-- Then we have a position column.[SHOW] I want that to be unique.
+- Then we have a position column.[SHOW]
+  - This is used to define a sort order.
+  - I want that to be unique.
   - It needs to be deferrable, because when you move a client up or down you have to change two rows.
 - And we have a client snapshot id column.[SHOW]
   - This is the original id.
@@ -878,10 +880,7 @@ Notes:
 - I'm preserving the old client ids.[SHOW]
   - This is very helpful throughout the migration.
 - I also keep the old snapshot ids. [SHOW]
-  - The `clients` view omits these, of course,
-    but they let me built a view replacing `client_snapshots`.
-  - Also this is an ordinary, non-temporal unique column.
-    So foreign keys referencing client snapshots can point here instead.
+  - Foreign keys referencing client snapshots can point here instead.
     - Later I was able to replace those with references to `client_id` instead.
   - Just don't forget, after inserting these records, we need to catch up that sequence!
 - Then I build the valid-time. [SHOW]
@@ -922,6 +921,7 @@ Notes:
 - Computing the `replaced_by_id` column is the only interesting bit.
   - Again, the lead window function is what we need.
 - I don't need this to be an updatable view: the idea is that these don't get updated, right?
+- And anyway I've already managed to drop this view entirely now.
 
 
 
@@ -946,7 +946,7 @@ WHERE   wc.valid_at @> current_timestamp at time zone 'UTC'
 
 Notes:
 
-- I also moved `work_categories` to a temporal table.
+- Then in another step, I moved `work_categories` to a temporal table.
 - Here is the view to simulate the old legacy table.
 - As I said, in the past I made new work category rows here for each snapshot, even if they didn't change.
   That means that a work category doesn't have a constant id across versions.
