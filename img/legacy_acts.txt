@@ -1,0 +1,38 @@
+                                      +---------------------------+
+                                      | client_snapshots          |
+                                      +---------------------------+
+                                   /--| id              integer   |--+---\
+                                   |  | client_id       integer   |  |   |
+                                   |  | replaced_by_id  integer   |>-/   |
+                                   |  | name            text      |      |
+                                   |  | full_name       text      |      |
+                                   |  | ...                       |      |
+                                   |  | created_at      timestamp |      |
+                                   |  | updated_at      timestamp |      |
+                                   |  | archived        boolean   |      |
++-------------------------------+  |  +---------------------------+      |
+| acts                          |  |                                     |
++-------------------------------+  |  +-------------------------------+  |
+| id                  integer   |  |  | work_categories               |  |
+| client_snapshot_id  integer   |>-/  +-------------------------------+  |
+| work_category_id    integer   |>----| id                  integer   |  |
+| task                text      |     | client_snapshot_id  integer   |>-/
+| day                 date      |     | name                text      |
+| start_time          timestamp |     | rate                integer   |
+| end_time            timestamp |     | created_at          timestamp |
+| created_at          timestamp |     | updated_at          timestamp |
+| updated_at          timestamp |     +-------------------------------+
+| deleted_at          timestamp |
++-------------------------------+
+
+
+                                 
+                                 
+                                 
+                                 
+                                 
+                                 
+                                 
+                                 
+                                 
+                                 

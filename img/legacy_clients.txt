@@ -1,0 +1,24 @@
++-----------------------+     +---------------------------+
+| clients               |     | client_snapshots          |
++-----------------------+     +---------------------------+
+| id          integer   |--\  | id              integer   |--+---\
+| name        text      |  \-<| client_id       integer   |  |   |
+| full_name   text      |     | replaced_by_id  integer   |>-/   |
+| ...                   |     | name            text      |      |
+| created_at  timestamp |     | full_name       text      |      |
+| updated_at  timestamp |     | ...                       |      |
+| deleted_at  timestamp |     | created_at      timestamp |      |
+| archived    boolean   |     | updated_at      timestamp |      |
++-----------------------+     | archived        boolean   |      |
+                              +---------------------------+      |
+                                                                 |
+                              +-------------------------------+  |
+                              | work_categories               |  |
+                              +-------------------------------+  |
+                              | id                  integer   |  |
+                              | client_snapshot_id  integer   |>-/
+                              | name                text      |
+                              | rate                integer   |
+                              | created_at          timestamp |
+                              | updated_at          timestamp |
+                              +-------------------------------+
