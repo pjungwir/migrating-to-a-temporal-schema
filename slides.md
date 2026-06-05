@@ -2,7 +2,7 @@
 
 Paul A. Jungwirth
 
-PG-Data 2026
+PG DATA 2026
 
 5 June 2026
 

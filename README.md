@@ -1,6 +1,6 @@
 # Migrating to a Temporal Schema
 
-These are the slides and my notes for a talk about migrating to a temporal schema in Postgres, given at [PG-DATA 2026](https://2026.pg-data.org/).
+These are the slides and my notes for a talk about migrating to a temporal schema in Postgres, given at [PG DATA 2026](https://2026.pg-data.org/).
 
 The slides are built on [reveal.js](https://github.com/hakimel/reveal.js/).
 You also can get [all the slides as a PDF](slides.pdf),
