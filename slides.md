@@ -277,7 +277,7 @@ Notes:
 
 Notes:
 
-- Fortunately, snapshotting is isomorphic over temporal operators.
+- Fortunately, snapshotting is homomorphic over temporal operators.
 - This is from a Snodgrass paper from 1993.
 - What I mean is you can take the snapshot before you do stuff like joins, or after.
 - So even big complicated queries don't need any more changes,
