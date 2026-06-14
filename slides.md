@@ -87,7 +87,7 @@ Notes:
 
 # Application Time
 
-![clients table](/img/clients_rows.png)
+![clients table](img/clients_rows.png)
 
 Notes:
 
@@ -100,7 +100,7 @@ Notes:
 
 # Application Time
 
-![clients table, with rangetypes](/img/clients_rows_ranges.png)
+![clients table, with rangetypes](img/clients_rows_ranges.png)
 
 Notes:
 
@@ -112,7 +112,7 @@ Notes:
 
 # Application Time
 
-![clients table, invalid](/img/clients_rows_ranges_invalid.png)
+![clients table, invalid](img/clients_rows_ranges_invalid.png)
 
 Notes:
 
@@ -125,7 +125,7 @@ Notes:
 
 # Application Time
 
-![clients timeline](/img/clients_timeline.png)
+![clients timeline](img/clients_timeline.png)
 
 Notes:
 
@@ -139,7 +139,7 @@ Notes:
 
 # System Time
 
-![bitemporal timeline](/img/bitemporal_timeline.png)
+![bitemporal timeline](img/bitemporal_timeline.png)
 
 Notes:
 
@@ -199,7 +199,7 @@ Notes:
 
 # Foreign Keys
 
-![referencing more than one row](/img/clients_fk_work_categories_timeline.png)
+![referencing more than one row](img/clients_fk_work_categories_timeline.png)
 
 Notes:
 
@@ -235,7 +235,7 @@ Notes:
 
 # Queries
 
-![snapshot query](/img/snapshot_query.png)
+![snapshot query](img/snapshot_query.png)
 
 Notes:
 
@@ -273,7 +273,7 @@ Notes:
 
 σ(R ⨯̂ S) = σ(R) × σ(S)
 
-![snapshot reducilibity](/img/snapshot_reducibility.png)
+![snapshot reducilibity](img/snapshot_reducibility.png)
 
 Notes:
 
@@ -349,7 +349,7 @@ Notes:
 
 # UPDATE
 
-![temporal update: before](/img/temporal_update_before.png)
+![temporal update: before](img/temporal_update_before.png)
 
 Notes:
 
@@ -359,7 +359,7 @@ Notes:
 
 # UPDATE
 
-![temporal update: goal](/img/temporal_update_goal.png)
+![temporal update: goal](img/temporal_update_goal.png)
 
 Notes:
 
@@ -370,7 +370,7 @@ Notes:
 
 # UPDATE
 
-![temporal update: after](/img/temporal_update_after.png)
+![temporal update: after](img/temporal_update_after.png)
 
 Notes:
 
@@ -381,7 +381,7 @@ Notes:
 
 # UPDATE
 
-![temporal update: leftovers](/img/temporal_update_leftovers.png)
+![temporal update: leftovers](img/temporal_update_leftovers.png)
 
 Notes:
 
@@ -498,7 +498,7 @@ Notes:
 
 # Legacy Tables
 
-![client tables](/img/legacy_clients.png)
+![client tables](img/legacy_clients.png)
 
 Notes:
 
@@ -539,7 +539,7 @@ Notes:
 
 # Legacy Tables
 
-![legacy acts](/img/legacy_acts.png)
+![legacy acts](img/legacy_acts.png)
 
 Notes:
 
@@ -727,7 +727,7 @@ Notes:
 # ID Tables
 <!-- .slide: style="font-size:85%" -->
 
-![`client_ids` table](/img/client_ids_table.png)
+![`client_ids` table](img/client_ids_table.png)
 
 ```sql
 CREATE TABLE temporal.single_clients (id integer PRIMARY KEY);
